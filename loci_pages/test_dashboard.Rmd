@@ -1,0 +1,145 @@
+---
+title: "My Flexdashboard"
+output: 
+  flexdashboard::flex_dashboard: # <-- INDENTED 2 SPACES
+    vertical_layout: scroll 
+---
+
+
+
+
+
+```{r library_load}
+library(tidyverse)
+library(plotly)
+library(flexdashboard)
+library(DT) 
+```
+
+## Row
+
+### Column {data-width=50}
+
+```{r data_clean}
+test_data = read_csv('../data/test_data.csv', show_col_types = FALSE)
+
+test_df = 
+  test_data %>% 
+  select(phenotype, beta, p, description, group) %>% 
+  arrange(group, phenotype) %>% 
+  mutate(
+    logp = -log10(test_data$p),
+    direction = ifelse(test_data$beta >= 0, "Positive", "Negative"),
+    xpos = row_number()) %>% 
+  na.omit() 
+```
+
+
+```{r}
+table_cols = c( "phenotype", "description", "group", "snp", "beta","OR", "SE","p", 
+               "n_total", "n_cases", "n_controls", "allele_freq" )
+
+test_table = 
+  test_data %>% 
+  select(table_cols) %>% 
+  arrange(p) #%>% 
+  #head(5) %>% 
+  #knitr::kable(
+  #  col.names = c('Phenocode', 'Phenocode', 'Group', 'SNP', 'Beta', ' OR', 'SE', 'P-value',
+  #                'Sample Size', 'Number of Cases', 'Number of Controls','Allele Frequency')
+  #)
+
+datatable(test_table, options = list(pageLength = 5))
+
+```
+
+
+### Column 
+```{r create_plot}
+# establish signficance threshold
+n_tests <- nrow(test_df)
+p_thresh <- 0.05 / n_tests
+logp_thresh <- -log10(p_thresh)
+
+cat_ticks = 
+  test_df %>%
+  group_by(group) %>%
+  summarize(midpoint = mean(xpos))
+
+# ---- Compute category boundaries & midpoints ----
+cat_bounds <- test_df %>%
+  group_by(group) %>%
+  summarize(start = min(xpos) - 0.5, end = max(xpos) + 0.5, midpoint = mean(xpos)) %>%
+  ungroup()
+
+# ---- Create alternating shaded rectangles ----
+shapes <- list(
+  # Bonferroni line
+  list(
+    type = "line",
+    x0 = 0,
+    x1 = 1,
+    xref = "paper",
+    y0 = logp_thresh,
+    y1 = logp_thresh,
+    line = list(color = "red", dash = "dash")
+  )
+)
+
+# Add shaded rectangles per category (alternate gray/transparent)
+for (i in seq_len(nrow(cat_bounds))) {
+  if (i %% 2 == 1) {  # shade every other category
+    shapes <- append(shapes, list(
+      list(
+        type = "rect",
+        xref = "x",
+        yref = "paper",
+        x0 = cat_bounds$start[i],
+        x1 = cat_bounds$end[i],
+        y0 = 0,
+        y1 = 1,
+        fillcolor = "lightgray",
+        opacity = 0.2,
+        line = list(width = 0)
+      )
+    ))
+  }
+}
+
+
+interactive_plot = plot_ly(
+  data = test_df,
+  x = ~xpos,
+  y = ~logp,
+  type = "scatter",
+  mode = "markers",
+  color = ~group,           
+  symbol = ~direction,            # shape by sign of beta
+  symbols = c("triangle-down", "triangle-up"), # map Negative/Positive
+  text = ~paste("Phenotype:", description,
+                "<br>Phenocode:", phenotype,
+                "<br>Group:", group, 
+                "<br>P-value:", signif(p, 3),
+                "<br>Beta:", signif(beta, 3)),
+  hoverinfo = "text",
+  showlegend = FALSE 
+) %>%
+  layout(
+    title = "Interactive PheWAS Manhattan Plot",
+    xaxis = list(
+      title = "Phenotype",
+      type = "linear", 
+      tickvals = cat_ticks$midpoint,
+      ticktext = cat_ticks$group
+    ),
+    yaxis = list(title = "-log10(P-value)"),
+    shapes = shapes
+      )
+
+interactive_plot
+```
+
+
+
+
+
