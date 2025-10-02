@@ -2,6 +2,7 @@
 title: "1-198394253-T-G PheWAS Dashboard"
 output: 
   flexdashboard::flex_dashboard: # extremely sensitive to the number of indents
+    self_contained: true
     vertical_layout: scroll 
     navbar:
       - { title: "Home", href: "index.html" }
@@ -18,7 +19,7 @@ library(DT)
 
 ## Row
 
-### Top 1-198394253-T-G Association Tests {data-width=50}
+### Top 1-198394253-T-G Association Tests
 
 ```{r data_clean}
 page_snp = '1-198394253-T-G'
