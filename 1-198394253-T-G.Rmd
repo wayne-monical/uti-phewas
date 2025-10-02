@@ -1,0 +1,162 @@
+---
+title: "1-198394253-T-G PheWAS Dashboard"
+output: 
+  flexdashboard::flex_dashboard: # extremely sensitive to the number of indents
+    vertical_layout: scroll 
+    navbar:
+      - { title: "Home", href: "index.html" }
+---
+
+
+
+```{r library_load, message=FALSE}
+library(tidyverse)
+library(plotly)
+library(flexdashboard)
+library(DT) 
+```
+
+## Row
+
+### Top 1-198394253-T-G Association Tests {data-width=50}
+
+```{r data_clean}
+page_snp = '1-198394253-T-G'
+
+phewas = 
+  read_csv('data/all_data.csv', show_col_types = FALSE) |> 
+  mutate(
+    snp = paste(chrom, pos, reference, alternate, sep = "-"),
+    beta = round(beta, 4),
+    or = round(or, 4),
+    se = round(se, 4)) |> 
+  filter(snp == page_snp)
+```
+
+
+```{r}
+table_cols = c("phenocode", 'phenostring', "category", 
+                "snp", "beta","or", "se","p", 
+                "num_cases", "num_controls", "af" )
+
+
+phewas |> 
+  select(all_of(table_cols)) |> 
+  arrange(p) |> 
+  
+  # formatting p-value
+  mutate(
+    p = formatC(p),
+    num_cases = format(num_cases, big.mark = ",", scientific = FALSE),
+    num_controls = format(num_controls, big.mark = ",", scientific = FALSE)) |> 
+
+  # display in table
+  datatable(
+  options = list(pageLength = 5),
+  colnames = c('Phenocode', 'Phenotype', 'Group', 
+               'SNP', 'Beta', ' OR', 'SE', 'P-value',
+               'Number of Cases', 'Number of Controls','Allele Frequency'))
+
+```
+
+
+### 1-198394253-T-G PheWAS Manhattan Plot 
+```{r create_plot}
+# establish signficance threshold
+n_tests <- nrow(phewas)
+p_thresh <- 0.05 / n_tests
+logp_thresh <- -log10(p_thresh)
+
+
+phewas_display = 
+  phewas |> 
+  select(phenocode, beta, p, phenostring, category) %>% 
+  arrange(category, phenocode) %>% 
+  mutate(
+    logp = -log10(p),
+    direction = ifelse(beta >= 0, "Positive", "Negative"),
+    xpos = row_number()) %>% 
+  na.omit() 
+
+cat_ticks = 
+  phewas_display %>%
+  group_by(category) %>%
+  summarize(midpoint = mean(xpos))
+
+# ---- Compute category boundaries & midpoints ----
+cat_bounds <- phewas_display %>%
+  group_by(category) %>%
+  summarize(start = min(xpos) - 0.5, end = max(xpos) + 0.5, midpoint = mean(xpos)) %>%
+  ungroup()
+
+# ---- Create alternating shaded rectangles ----
+shapes <- list(
+  # Bonferroni line
+  list(
+    type = "line",
+    x0 = 0,
+    x1 = 1,
+    xref = "paper",
+    y0 = logp_thresh,
+    y1 = logp_thresh,
+    line = list(color = "red", dash = "dash")
+  )
+)
+
+# Add shaded rectangles per category (alternate gray/transparent)
+for (i in seq_len(nrow(cat_bounds))) {
+  if (i %% 2 == 1) {  # shade every other category
+    shapes <- append(shapes, list(
+      list(
+        type = "rect",
+        xref = "x",
+        yref = "paper",
+        x0 = cat_bounds$start[i],
+        x1 = cat_bounds$end[i],
+        y0 = 0,
+        y1 = 1,
+        fillcolor = "lightgray",
+        opacity = 0.2,
+        line = list(width = 0)
+      )
+    ))
+  }
+}
+
+
+interactive_plot = plot_ly(
+  data = phewas_display,
+  x = ~xpos,
+  y = ~logp,
+  type = "scatter",
+  mode = "markers",
+  color = ~category,           
+  symbol = ~direction,            # shape by sign of beta
+  symbols = c("triangle-down", "triangle-up"), # map Negative/Positive
+  text = ~paste("Phenotype:", phenostring,
+                "<br>Phenocode:", phenocode,
+                "<br>Group:", category, 
+                "<br>P-value:", signif(p, 3),
+                "<br>Beta:", signif(beta, 3)),
+  hoverinfo = "text",
+  showlegend = FALSE 
+) %>%
+  layout(
+    title = paste0(page_snp, " Interactive PheWAS Manhattan Plot"),
+    xaxis = list(
+      title = "Phenotype",
+      type = "linear", 
+      tickvals = cat_ticks$midpoint,
+      ticktext = cat_ticks$category
+    ),
+    yaxis = list(title = "-log10(P-value)"),
+    shapes = shapes
+      )
+
+interactive_plot
+```
+
+
+
+
+
