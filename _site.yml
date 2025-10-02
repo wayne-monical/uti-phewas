@@ -6,6 +6,7 @@ navbar:
   left:
     - text: "Home"
       href: index.html
-output:
+    - text: "test dashboard"
+      href: test_dashboard.html
   html_document:
     toc: true
