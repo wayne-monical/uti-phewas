@@ -2,7 +2,7 @@
 title: "1-198394253-T-G PheWAS Dashboard"
 output: 
   flexdashboard::flex_dashboard: # extremely sensitive to the number of indents
-    self_contained: true
+    self_contained: false
     vertical_layout: scroll 
     navbar:
       - { title: "Home", href: "index.html" }

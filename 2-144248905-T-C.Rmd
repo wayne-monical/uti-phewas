@@ -18,7 +18,7 @@ library(DT)
 
 ## Row
 
-### Top 2-144248905-T-C Association Tests {data-width=50}
+### Top 2-144248905-T-C Association Tests
 
 ```{r data_clean}
 page_snp = '2-144248905-T-C'
