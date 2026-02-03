@@ -18,6 +18,8 @@ Welcome to the Urinary Tract Infection PheWAS browswer. This site displays the p
 
 
 ```{r, echo=FALSE}
+
+# read in data
 phewas = 
   read_csv('data/all_data.csv', show_col_types = FALSE) |> 
   mutate(
@@ -27,20 +29,14 @@ phewas =
     se = round(se, 4),
     round(af, 2)) 
 
+# get strongest phenotype association for each snp
 best_phewas = 
   phewas |> 
   group_by(snp)  |> 
   filter(p == min(p, na.rm = TRUE))  |> 
   ungroup() |> 
-  arrange(chrom, pos)
+  arrange(chrom, pos) 
 ```
-
-
-## PheWAS Browsers
-
-- [1-198394253-T-G](1-198394253-T-G.html)
-- [2-43078360-T-G](2-43078360-T-G.html)
-- [2-144248905-T-C](2-144248905-T-C.html)
 
 
 
@@ -54,10 +50,19 @@ table_cols = c("snp", 'phenostring', "phenocode", "category",
 
 best_phewas |> 
   select( all_of(table_cols)) |> 
+  mutate(# put in links
+    snp = paste0(
+      #"<a href='", base_url, snp, ".html' target='_blank'>", 
+      #snp, # This is the text the user sees
+      #"</a>" ))|> 
+      "<a href='", "variants/", snp, ".html' target='_blank'>", 
+      snp, # This is the text the user sees
+      "</a>" ))|> 
   datatable(
     colnames = c('SNP', 'Strongest Association','Phenocode',  'Group', 
                 'Beta', ' OR', 'SE', 'P-value',
-               'Number of Cases', 'Number of Controls','Allele Frequency'))
+               'Number of Cases', 'Number of Controls','Allele Frequency'),
+    escape = FALSE)
 ```
 
 
